@@ -43,7 +43,6 @@ Pastikan Python sudah terinstal, kemudian jalankan:
 ```bash
 python main.py
 ```
-
 ## Pengembangan Selanjutnya
 
 * Menambahkan algoritma A*
@@ -51,3 +50,6 @@ python main.py
 * Membuat sensor yang lebih realistis
 * Menambahkan visualisasi yang lebih interaktif
 * Menghubungkan simulasi dengan robot atau mikrokontroler
+
+## Hasil Simulasi
+![Hasil Simulasi](screenshots/simulation.png)
