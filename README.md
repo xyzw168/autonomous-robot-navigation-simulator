@@ -29,7 +29,7 @@ Proyek simulasi navigasi robot menggunakan Python pada arena grid 2D. Robot dapa
 5. Robot bergerak langkah demi langkah dan memeriksa validitas setiap gerakan.
 6. Setelah mencapai target, program menampilkan hasil simulasi.
 
-## Teknologi
+## Tools
 
 * Python 3
 * BFS (*Breadth-First Search*)
