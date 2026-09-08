@@ -1,5 +1,6 @@
 import os
 import time
+import heapq
 from collections import deque
 
 # arena
@@ -27,7 +28,7 @@ ANIMATION_DELAY = 0.5
 def print_arena(grid, robot_pos=None, path=None, visited=None):
     os.system('cls' if os.name == 'nt' else 'clear')
 
-    print("=== AUTONOMOUS ROBOT NAVIGATION SIMULATOR ===")
+    print("AUTONOMOUS ROBOT NAVIGATION SIMULATOR")
 
     path = path or set()
     visited = visited or set()
@@ -46,10 +47,10 @@ def print_arena(grid, robot_pos=None, path=None, visited=None):
                 row.append(GOAL)
             elif grid[r][c] == OBSTACLE:
                 row.append(OBSTACLE)
-            elif pos in path:
-                row.append('*')
             elif pos in visited:
                 row.append(PATH)
+            elif pos in path:
+                row.append('*')
             else:
                 row.append(EMPTY)
 
@@ -98,6 +99,8 @@ def tampilkan_sensor(sensor):
             status = "Obstacle"
         elif kondisi == GOAL:
             status = "Goal"
+        elif kondisi == START:
+            status = "Start"
         else:
             status = "Batas"
 
@@ -161,6 +164,61 @@ def bfs_shortest_path(grid, start, goal):
     return path, explored
 
 
+# heuristic
+def manhattan_distance(pos_a, pos_b):
+    r1, c1 = pos_a
+    r2, c2 = pos_b
+
+    return abs(r1 - r2) + abs(c1 - c2)
+
+
+# A* untuk mencari jalur terpendek 
+def astar_shortest_path(grid, start, goal):
+    open_set = [(manhattan_distance(start, goal), 0, start)]
+
+    g_score = {start: 0}
+    parent = {start: None}
+    visited = set()
+
+    explored = 0
+
+    while open_set:
+        _, current_g, current = heapq.heappop(open_set)
+
+        if current in visited:
+            continue
+
+        visited.add(current)
+        explored += 1
+
+        if current == goal:
+            break
+
+        for neighbor in get_valid_neighbors(grid, current):
+            tentative_g = current_g + 1
+
+            if tentative_g < g_score.get(neighbor, float('inf')):
+                g_score[neighbor] = tentative_g
+                parent[neighbor] = current
+
+                f_score = tentative_g + manhattan_distance(neighbor, goal)
+                heapq.heappush(open_set, (f_score, tentative_g, neighbor))
+
+    if goal not in parent:
+        return None, explored
+
+    path = []
+    current = goal
+
+    while current is not None:
+        path.append(current)
+        current = parent[current]
+
+    path.reverse()
+
+    return path, explored
+
+
 # tentukan arah robot
 def tentukan_arah(pos_lama, pos_baru):
     r1, c1 = pos_lama
@@ -198,9 +256,40 @@ def gerakan_valid(grid, pos_lama, pos_baru):
     return True
 
 
-# tampilkan hasil
-def tampilkan_hasil(start, goal, path, explored, execution_time):
-    print("\n=== HASIL SIMULASI ===")
+# jalankan satu algoritma dan kembalikan hasil terstruktur
+def jalankan_algoritma(nama, fungsi, grid, start, goal):
+    start_time = time.perf_counter()
+    path, explored = fungsi(grid, start, goal)
+    execution_time = time.perf_counter() - start_time
+
+    return {
+        "nama": nama,
+        "path": path,
+        "langkah": (len(path) - 1) if path else None,
+        "explored": explored,
+        "waktu": execution_time
+    }
+
+
+# perbandingan BFS vs A*
+def tampilkan_perbandingan(hasil_list):
+    print("\nPERBANDINGAN PATH PLANNING")
+
+    for hasil in hasil_list:
+        print(f"\n{hasil['nama']}")
+
+        if hasil["path"] is None:
+            print("Path           : Tidak ditemukan")
+            continue
+
+        print(f"Path           : {hasil['langkah']} langkah")
+        print(f"Posisi dicek   : {hasil['explored']}")
+        print(f"Waktu proses   : {hasil['waktu']:.6f} detik")
+
+
+# hasil animasi robot
+def tampilkan_hasil(start, goal, path, explored, execution_time, nama_algoritma):
+    print("\nHASIL SIMULASI")
     print(f"Start          : {start}")
     print(f"Goal           : {goal}")
     print(f"Jumlah langkah : {len(path) - 1}")
@@ -208,7 +297,49 @@ def tampilkan_hasil(start, goal, path, explored, execution_time):
     print(f"Waktu proses   : {execution_time:.6f} detik")
     print("Collision      : Tidak")
     print("Status         : Goal tercapai")
-    print("Path Planning  : BFS")
+    print(f"Path Planning  : {nama_algoritma}")
+
+
+# animasi robot berjalan mengikuti satu path
+def animasikan_robot(grid, goal, path):
+    planned_path = set(path)
+    visited_positions = set()
+
+    for i, current_position in enumerate(path):
+        visited_positions.add(current_position)
+
+        print_arena(
+            grid,
+            current_position,
+            planned_path,
+            visited_positions
+        )
+
+        if current_position == goal:
+            print("\nGOAL TERCAPAI!")
+            print(f"Robot sampai dalam {i} langkah.")
+            break
+
+        next_position = path[i + 1]
+
+        if not gerakan_valid(
+            grid,
+            current_position,
+            next_position
+        ):
+            print("\nGerakan tidak valid.")
+            return False
+
+        arah = tentukan_arah(
+            current_position,
+            next_position
+        )
+
+        print(f"\nLangkah {i + 1}: {arah}")
+
+        time.sleep(ANIMATION_DELAY)
+
+    return True
 
 
 # jalankan simulasi
@@ -230,73 +361,35 @@ def jalankan_simulasi():
     sensor = baca_sensor(arena, start)
     tampilkan_sensor(sensor)
 
-    print("\nMencari jalur...")
+    print("\nMencari jalur dengan BFS dan A*...")
     time.sleep(1)
 
-    start_time = time.perf_counter()
+    hasil_bfs = jalankan_algoritma("BFS", bfs_shortest_path, arena, start, goal)
+    hasil_astar = jalankan_algoritma("A*", astar_shortest_path, arena, start, goal)
 
-    path, explored = bfs_shortest_path(
-        arena,
-        start,
-        goal
-    )
-
-    execution_time = time.perf_counter() - start_time
-
-    if path is None:
+    if hasil_bfs["path"] is None:
         print("\nTidak ada jalur menuju Goal.")
         return
 
-    print(f"\nJalur ditemukan: {len(path) - 1} langkah")
-
-    planned_path = set(path)
+    print(f"\nJalur ditemukan: {hasil_bfs['langkah']} langkah")
 
     time.sleep(1)
 
-    visited_positions = set()
+    berhasil = animasikan_robot(arena, goal, hasil_bfs["path"])
 
-    # robot bergerak mengikuti jalur
-    for i, current_position in enumerate(path):
-        visited_positions.add(current_position)
-
-        print_arena(
-            arena,
-            current_position,
-            planned_path,
-            visited_positions
-        )
-
-        if current_position == goal:
-            print("\nGOAL TERCAPAI!")
-            print(f"Robot sampai dalam {i} langkah.")
-            break
-
-        next_position = path[i + 1]
-
-        if not gerakan_valid(
-            arena,
-            current_position,
-            next_position
-        ):
-            print("\nGerakan tidak valid.")
-            return
-
-        arah = tentukan_arah(
-            current_position,
-            next_position
-        )
-
-        print(f"\nLangkah {i + 1}: {arah}")
-
-        time.sleep(ANIMATION_DELAY)
+    if not berhasil:
+        return
 
     tampilkan_hasil(
         start,
         goal,
-        path,
-        explored,
-        execution_time
+        hasil_bfs["path"],
+        hasil_bfs["explored"],
+        hasil_bfs["waktu"],
+        "BFS"
     )
+
+    tampilkan_perbandingan([hasil_bfs, hasil_astar])
 
 
 # mulai program
